@@ -26,6 +26,9 @@ app.get('/', (req, res) => {
     message: '🦄🌈✨👋🌎🌍🌏✨🌈🦄'
   })
 })
+const base1 = 'https://pokeapi.co/api/v2/pokemon'
+const base2 = 'https://pokeapi.co/api/v2/pokemon-species'
+const base3 = 'http://localhost:5000/endpoint1'
 app.get('/endpoint1', (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}/`)
   const queryObj = new URLSearchParams(url.search)
@@ -39,7 +42,6 @@ app.get('/endpoint1', (req, res) => {
   const base2Data = []
   const charsErrors = []
   const getRandomMoves = (numMoves, movesData) => {
-    console.log(`length of movesData = ${movesData.length}`)
     const movesAvailable = movesData.length
     if (movesAvailable === 0) return []
     if (movesAvailable === 1) return [movesData[0].move.name]
@@ -67,7 +69,6 @@ app.get('/endpoint1', (req, res) => {
   })
   Promise.all(promises1).then(
     () => {
-      console.log(`all promises (${promises1.length}) succeeded, charsJson has ${charsData.length} items`)
       const promises2 = charsArray.map((char) => {
         return new Promise((resolve, reject) => {
           fetch(`${base2}/${char}`)
@@ -83,7 +84,6 @@ app.get('/endpoint1', (req, res) => {
         })
       })
       Promise.all(promises2).then(() => {
-        console.log('resolving promises2,')
         charsData = charsData.map((data, i) => {
           return {
             id: data.id,
@@ -100,7 +100,7 @@ app.get('/endpoint1', (req, res) => {
       })
     },
     (e) => {
-      const mesg = `one or more promises failed for chars array '${chars}', first failure = ${JSON.stringify(charsErrors)}`
+      const mesg = `one or more failures for character input array '${chars}', first failure = ${JSON.stringify(charsErrors)}`
       res.status(500).send({ error: mesg })
     }
   )
@@ -109,14 +109,65 @@ app.get('/endpoint1', (req, res) => {
   //   message: `There are ${promises.length} promises`
   // })
 })
-const base1 = 'https://pokeapi.co/api/v2/pokemon'
-const base2 = 'https://pokeapi.co/api/v2/pokemon-species'
-app.get('/delegate', (req, res) => {
-  // console.log(`requesting ${ENDPOINT_URL}${req.url}`)
-  fetch(`${base1}/25`)
-    .then(data => data.json())
-    .then(json => res.send(json))
-    .catch(e => console.log(`Error: ${e}`))
+app.get('/endpoint2', (req, res) => {
+  const url = new URL(req.url, `http://${req.headers.host}/`)
+  const queryObj = new URLSearchParams(url.search)
+  const chars = queryObj.get('chars')
+  if (!chars) {
+    res.status(500).send({ error: '/endpoint1 requires a `chars` parameter and value (comma-separated list of  Pokemon nanes)' })
+    return
+  }
+  const promise3 = new Promise((resolve, reject) => {
+    fetch(`${base3}?chars=${chars}`)
+      .then(data => {
+        return data.json()
+      })
+      .then(data => {
+        if ('error' in data) {
+          reject(data)
+        }
+        resolve(data)
+      })
+      .catch((e) => {
+        reject(e)
+      })
+  })
+  promise3.then((data) => {
+
+    const addRandom = () => Math.floor(Math.random() * 10)
+    const median = arr => {
+      const mid = Math.floor(arr.length / 2),
+        nums = [...arr].sort((a, b) => a - b)
+      return arr.length % 2 !== 0 ? nums[mid] : (nums[mid - 1] + nums[mid]) / 2
+    }
+    const mean = (nums) => nums.reduce((total, num) => total + num, 0) / nums.length
+    function mode (arr) {
+      return arr.sort((a, b) =>
+        arr.filter(v => v === a).length -
+              arr.filter(v => v === b).length
+      ).pop()
+    }
+    const base_happinesses = data.map((char) => char.base_happiness)
+    res.send({
+      base_happiness_stats: {
+        actual: {
+          mean: Number(mean(base_happinesses).toFixed(2)),
+          median: Number(median(base_happinesses).toFixed(2)),
+          mode: Number(mode(base_happinesses).toFixed(2))
+        },
+        random_factor_added: {
+          mean: Number(mean(data.map((char) => char.base_happiness + addRandom())).toFixed(2)),
+          median: Number(median(data.map((char) => char.base_happiness + addRandom())).toFixed(2)),
+          mode: Number(mode(data.map((char) => char.base_happiness + addRandom())).toFixed(2))
+        }
+      },
+      characters: data
+    })
+  },
+  (e) => {
+    const mesg = `one or more failures for character input array '${chars}'`
+    res.status(500).send({ error: mesg })
+  })
 })
 
 app.use('/api/v1', api)
