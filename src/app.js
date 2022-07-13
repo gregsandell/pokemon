@@ -36,8 +36,22 @@ app.get('/endpoint1', (req, res) => {
   }
   const charsArray = chars.split(',')
   let charsData = []
+  const base2Data = []
   const charsErrors = []
-  const promises = charsArray.map((char) => {
+  const getRandomMoves = (numMoves, movesData) => {
+    console.log(`length of movesData = ${movesData.length}`)
+    const movesAvailable = movesData.length
+    if (movesAvailable === 0) return []
+    if (movesAvailable === 1) return [movesData[0].move.name]
+    const scrambled = [...movesData].sort(() => Math.random() - 0.5)
+    return scrambled.reduce((accum, move, i) => {
+      if (i < numMoves) {
+        accum.push(move.move.name)
+      }
+      return accum
+    }, [])
+  }
+  const promises1 = charsArray.map((char) => {
     return new Promise((resolve, reject) => {
       fetch(`${base1}/${char}`)
         .then(data => data.json())
@@ -51,22 +65,44 @@ app.get('/endpoint1', (req, res) => {
         })
     })
   })
-  Promise.all(promises).then(
-      () => {
-        console.log(`all promises (${promises.length}) succeeded, charsJson has ${charsData.length} items`)
-        charsData = charsData.map((data) => {
+  Promise.all(promises1).then(
+    () => {
+      console.log(`all promises (${promises1.length}) succeeded, charsJson has ${charsData.length} items`)
+      const promises2 = charsArray.map((char) => {
+        return new Promise((resolve, reject) => {
+          fetch(`${base2}/${char}`)
+            .then(data => data.json())
+            .then(data => {
+              base2Data.push(data)
+              resolve()
+            })
+            .catch((e) => {
+              charsErrors.push(`fetch for char '${char}' failed with: ${e}`)
+              reject(e)
+            })
+        })
+      })
+      Promise.all(promises2).then(() => {
+        console.log('resolving promises2,')
+        charsData = charsData.map((data, i) => {
           return {
+            id: data.id,
             name: data.forms[0].name,
             height: data.height,
             weight: data.weight,
+            moves: getRandomMoves(2, data.moves),
+            base_happiness: base2Data[i].base_happiness,
+            color: base2Data[i].color.name
           }
         })
+
         res.json(charsData)
-      },
-      (e) => {
-        const mesg = `one or more promises failed for chars array '${chars}', first failure = ${JSON.stringify(charsErrors)}`
-        res.status(500).send({error: mesg})
-      }
+      })
+    },
+    (e) => {
+      const mesg = `one or more promises failed for chars array '${chars}', first failure = ${JSON.stringify(charsErrors)}`
+      res.status(500).send({ error: mesg })
+    }
   )
 
   // res.json({
@@ -74,6 +110,7 @@ app.get('/endpoint1', (req, res) => {
   // })
 })
 const base1 = 'https://pokeapi.co/api/v2/pokemon'
+const base2 = 'https://pokeapi.co/api/v2/pokemon-species'
 app.get('/delegate', (req, res) => {
   // console.log(`requesting ${ENDPOINT_URL}${req.url}`)
   fetch(`${base1}/25`)
