@@ -1,0 +1,9 @@
+{
+  "extends": [
+    "standard"
+  ],
+  "rules": {
+    "one-var": "off",
+    "camelcase": "off"
+  }
+}
