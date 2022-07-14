@@ -147,20 +147,13 @@ app.get('/endpoint2', (req, res) => {
               arr.filter(v => v === b).length
       ).pop()
     }
-    const base_happinesses = data.map((char) => char.base_happiness)
+    const base_weights = data.map((char) => char.weight)
     res.send({
-      base_happiness_stats: {
-        actual: {
-          mean: Number(mean(base_happinesses).toFixed(2)),
-          median: Number(median(base_happinesses).toFixed(2)),
-          mode: Number(mode(base_happinesses).toFixed(2))
-        },
-        random_factor_added: {
-          mean: Number(mean(data.map((char) => char.base_happiness + addRandom())).toFixed(2)),
-          median: Number(median(data.map((char) => char.base_happiness + addRandom())).toFixed(2)),
-          mode: Number(mode(data.map((char) => char.base_happiness + addRandom())).toFixed(2))
-        }
-      },
+      base_weight_stats: {
+          mean: Number(mean(base_weights).toFixed(2)),
+          median: Number(median(base_weights).toFixed(2)),
+          mode: Number(mode(base_weights).toFixed(2))
+       },
       characters: data
     })
   },
