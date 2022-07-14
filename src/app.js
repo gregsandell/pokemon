@@ -10,7 +10,25 @@ const pokeURLs = {
   character: 'https://pokeapi.co/api/v2/pokemon',
   species: 'https://pokeapi.co/api/v2/pokemon-species'
 }
-const base2 = 'https://pokeapi.co/api/v2/pokemon-species'
+//
+// endpoint1
+//
+// Sample invocation:  http://localhost:5000/endpoint1?chars=ditto,pikachu,bulbasaur,snorlax,charmander
+//
+// Strategy (using sample above):
+//   1. async the calls to the pokeapi for the five characters, wait for them to complete with a
+//      Promise.all.
+//   2. Upon completion of (1) the same is applied to the species calls for the five characters,
+//      wait for them to complete with a second Promise.all.
+//   3. Upon completion of (2) the desired values are pruned and merged together.  The correct alignment
+//      of character and species data is ensured with a match on their ids.
+//
+//   Failure handling:
+//      * Inappropriate commas in the chars input parameter are ignored gracefully.  See Util.sanitizeCharsParam
+//      * A failure in (1) will fail the service without going onto (3)
+//      * A failure in (2) will fail at that stage without going to the final Promise.all().  This
+//        failure is unlikely if (1) did not fail
+//
 app.get('/endpoint1', (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}/`)
   const queryObj = new URLSearchParams(url.search)
@@ -19,7 +37,7 @@ app.get('/endpoint1', (req, res) => {
     res.status(500).send({ error: '/endpoint1 requires a `chars` parameter and value (comma-separated list of  Pokemon nanes)' })
     return
   }
-  const charsArray = chars.split(',')
+  const charsArray = util.sanitizeCharsParam(chars.split(','))
   let characterData = []
   const speciesData = []
   const endpont1Errors = []
@@ -55,14 +73,15 @@ app.get('/endpoint1', (req, res) => {
       })
       Promise.all(promises2).then(() => {
         characterData = characterData.map((charData, i) => {
+          const species = speciesData.find((spec) => spec.id === charData.id)
           return {
             id: charData.id,
             name: charData.forms[0].name,
             height: charData.height,
             weight: charData.weight,
             moves: util.getRandomMoves(2, charData.moves),
-            base_happiness: speciesData[i].base_happiness,
-            color: speciesData[i].color.name
+            base_happiness: species.base_happiness,
+            color: species.color.name
           }
         })
 
@@ -75,6 +94,15 @@ app.get('/endpoint1', (req, res) => {
     }
   )
 })
+//
+// endpoint2
+//
+// Sample invocation:  http://localhost:5000/endpoint2?chars=ditto,pikachu,bulbasaur,snorlax,charmander
+//
+// Strategy (using sample above):
+//   1. /endpoint1 service is called and failures are consumed there, failed with a throw, and consumed
+//      here as on as a Promise catch and reported with a .then() reject handler.
+//
 app.get('/endpoint2', (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}/`)
   const queryObj = new URLSearchParams(url.search)
@@ -83,7 +111,7 @@ app.get('/endpoint2', (req, res) => {
     res.status(500).send({ error: '/endpoint1 requires a `chars` parameter and value (comma-separated list of  Pokemon nanes)' })
     return
   }
-  const promise3 = new Promise((resolve, reject) => {
+  const promise = new Promise((resolve, reject) => {
     const endpoint1URL = `${req.protocol}://${req.hostname}:${req.socket.localPort}/endpoint1`
     fetch(`${endpoint1URL}?chars=${chars}`)
       .then(data => {
@@ -99,7 +127,7 @@ app.get('/endpoint2', (req, res) => {
         reject(e)
       })
   })
-  promise3.then((data) => {
+  promise.then((data) => {
     const base_weights = data.map((char) => char.weight)
     res.send({
       characters: data,
