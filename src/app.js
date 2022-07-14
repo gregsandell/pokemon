@@ -1,34 +1,16 @@
 const express = require('express')
-
-// Note needed?
-const morgan = require('morgan')
-const helmet = require('helmet')
-const cors = require('cors')
-
-// Greg's stuff
-// const url = require('url')
 const fetch = require('node-fetch')
-
-require('dotenv').config()
-
+const Util = require('./util')
+const util = new Util()
 const middlewares = require('./middlewares')
+const app = express()
 const api = require('./api')
 
-const app = express()
-
-app.use(morgan('dev'))
-app.use(helmet())
-app.use(cors())
-app.use(express.json())
-
-app.get('/', (req, res) => {
-  res.json({
-    message: '🦄🌈✨👋🌎🌍🌏✨🌈🦄'
-  })
-})
-const base1 = 'https://pokeapi.co/api/v2/pokemon'
+const pokeURLs = {
+  character: 'https://pokeapi.co/api/v2/pokemon',
+  species: 'https://pokeapi.co/api/v2/pokemon-species'
+}
 const base2 = 'https://pokeapi.co/api/v2/pokemon-species'
-const base3 = 'http://localhost:5000/endpoint1'
 app.get('/endpoint1', (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}/`)
   const queryObj = new URLSearchParams(url.search)
@@ -38,31 +20,19 @@ app.get('/endpoint1', (req, res) => {
     return
   }
   const charsArray = chars.split(',')
-  let charsData = []
-  const base2Data = []
-  const charsErrors = []
-  const getRandomMoves = (numMoves, movesData) => {
-    const movesAvailable = movesData.length
-    if (movesAvailable === 0) return []
-    if (movesAvailable === 1) return [movesData[0].move.name]
-    const scrambled = [...movesData].sort(() => Math.random() - 0.5)
-    return scrambled.reduce((accum, move, i) => {
-      if (i < numMoves) {
-        accum.push(move.move.name)
-      }
-      return accum
-    }, [])
-  }
+  let characterData = []
+  const speciesData = []
+  const endpont1Errors = []
   const promises1 = charsArray.map((char) => {
     return new Promise((resolve, reject) => {
-      fetch(`${base1}/${char}`)
+      fetch(`${pokeURLs.character}/${char}`)
         .then(data => data.json())
         .then(data => {
-          charsData.push(data)
+          characterData.push(data)
           resolve()
         })
         .catch((e) => {
-          charsErrors.push(`fetch for char '${char}' failed with: ${e}`)
+          endpont1Errors.push(`fetch for char '${char}' failed with: ${e}`)
           reject(e)
         })
     })
@@ -71,43 +41,39 @@ app.get('/endpoint1', (req, res) => {
     () => {
       const promises2 = charsArray.map((char) => {
         return new Promise((resolve, reject) => {
-          fetch(`${base2}/${char}`)
+          fetch(`${pokeURLs.species}/${char}`)
             .then(data => data.json())
             .then(data => {
-              base2Data.push(data)
+              speciesData.push(data)
               resolve()
             })
             .catch((e) => {
-              charsErrors.push(`fetch for char '${char}' failed with: ${e}`)
+              endpont1Errors.push(`fetch for char '${char}' failed with: ${e}`)
               reject(e)
             })
         })
       })
       Promise.all(promises2).then(() => {
-        charsData = charsData.map((data, i) => {
+        characterData = characterData.map((charData, i) => {
           return {
-            id: data.id,
-            name: data.forms[0].name,
-            height: data.height,
-            weight: data.weight,
-            moves: getRandomMoves(2, data.moves),
-            base_happiness: base2Data[i].base_happiness,
-            color: base2Data[i].color.name
+            id: charData.id,
+            name: charData.forms[0].name,
+            height: charData.height,
+            weight: charData.weight,
+            moves: util.getRandomMoves(2, charData.moves),
+            base_happiness: speciesData[i].base_happiness,
+            color: speciesData[i].color.name
           }
         })
 
-        res.json(charsData)
+        res.json(characterData)
       })
     },
     (e) => {
-      const mesg = `one or more failures for character input array '${chars}', first failure = ${JSON.stringify(charsErrors)}`
+      const mesg = `One or more failures for character input array '${chars}', first failure = ${JSON.stringify(endpont1Errors)}`
       res.status(500).send({ error: mesg })
     }
   )
-
-  // res.json({
-  //   message: `There are ${promises.length} promises`
-  // })
 })
 app.get('/endpoint2', (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}/`)
@@ -118,7 +84,8 @@ app.get('/endpoint2', (req, res) => {
     return
   }
   const promise3 = new Promise((resolve, reject) => {
-    fetch(`${base3}?chars=${chars}`)
+    const endpoint1URL = `${req.protocol}://${req.hostname}:${req.socket.localPort}/endpoint1`
+    fetch(`${endpoint1URL}?chars=${chars}`)
       .then(data => {
         return data.json()
       })
@@ -133,28 +100,14 @@ app.get('/endpoint2', (req, res) => {
       })
   })
   promise3.then((data) => {
-
-    const addRandom = () => Math.floor(Math.random() * 10)
-    const median = arr => {
-      const mid = Math.floor(arr.length / 2),
-        nums = [...arr].sort((a, b) => a - b)
-      return arr.length % 2 !== 0 ? nums[mid] : (nums[mid - 1] + nums[mid]) / 2
-    }
-    const mean = (nums) => nums.reduce((total, num) => total + num, 0) / nums.length
-    function mode (arr) {
-      return arr.sort((a, b) =>
-        arr.filter(v => v === a).length -
-              arr.filter(v => v === b).length
-      ).pop()
-    }
     const base_weights = data.map((char) => char.weight)
     res.send({
+      characters: data,
       base_weight_stats: {
-          mean: Number(mean(base_weights).toFixed(2)),
-          median: Number(median(base_weights).toFixed(2)),
-          mode: Number(mode(base_weights).toFixed(2))
-       },
-      characters: data
+        mean: Number(util.mean(base_weights).toFixed(2)),
+        median: Number(util.median(base_weights).toFixed(2)),
+        mode: Number(util.mode(base_weights).toFixed(2))
+      }
     })
   },
   (e) => {
