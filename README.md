@@ -14,7 +14,7 @@ I called the two requests endpoints `endpoint1` and `endpoint2`.
 
 Documentation on my solution can be found in code comments.
 
-Future improvements:
+Improvements for later:
 1. Modularize the code more in `src/app.js`
 2. Add tests
 3. Include middlewares to make code DRYER, handle promises/failures
