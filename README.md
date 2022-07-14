@@ -10,13 +10,18 @@ Sample invocations:
 * endpoint2:  http://localhost:5000/endpoint2?chars=ditto,pikachu,bulbasaur,snorlax,charmander
 
 ## Comments on my Solution
-I called the two endpoints requested `endpoint1` and `endpoint2`.
+I called the two requests endpoints `endpoint1` and `endpoint2`.
 
 Documentation on my solution can be found in code comments.
 
 Future improvements:
-1. Modularize the code in `src/app.js`
+1. Modularize the code more in `src/app.js`
 2. Add tests
+3. Include middlewares to make code DRYER, handle promises/failures
+4. Set globals with an `.env`
+5. Make error messages more informative, improve the error chaining
+
+Thank you for a very interesting challenge.  - Greg Sandell
 
 ### Requirements alterations
 1. I substituted the original `average, mean, and median` with `mean, median and mode` 
@@ -45,7 +50,10 @@ Design a Restful API endpoint to:
 
 ### Greg's Notes
 #### Characters
-base1 = https://pokeapi.co/api/v2/pokemon
+variable "base1": https://pokeapi.co/api/v2/pokemon
+variable "base2": https://pokeapi.co/api/v2/pokemon-species
+
+Calling the character service for various characters:
 * Ditto is #132
   * `base1/132` or `base1/ditto`
 * Pikachu is #25
@@ -56,8 +64,8 @@ base1 = https://pokeapi.co/api/v2/pokemon
   * `base1/snorlax` or `base1/143
 * Blastoise is #9
   * `base1/blastoise` or `base1/9`
-#### Attributes
-base2: https://pokeapi.co/api/v2/pokemon-species
+  
+URLs for required data:
 * name: `base1/character` - `data.forms[0].name`
 * height `base1/character`: `data.height`
 * weight `base1/character`: `data.weight`

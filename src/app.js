@@ -2,9 +2,7 @@ const express = require('express')
 const fetch = require('node-fetch')
 const Util = require('./util')
 const util = new Util()
-const middlewares = require('./middlewares')
 const app = express()
-const api = require('./api')
 
 const pokeURLs = {
   character: 'https://pokeapi.co/api/v2/pokemon',
@@ -24,6 +22,7 @@ const pokeURLs = {
 //      of character and species data is ensured with a match on their ids.
 //
 //   Failure handling:
+//      * Failed calls will result in the service returning: { message: 'Failure explanation' }
 //      * Inappropriate commas in the chars input parameter are ignored gracefully.  See Util.sanitizeCharsParam
 //      * A failure in (1) will fail the service without going onto (3)
 //      * A failure in (2) will fail at that stage without going to the final Promise.all().  This
@@ -143,10 +142,5 @@ app.get('/endpoint2', (req, res) => {
     res.status(500).send({ error: mesg })
   })
 })
-
-app.use('/api/v1', api)
-
-app.use(middlewares.notFound)
-app.use(middlewares.errorHandler)
 
 module.exports = app
